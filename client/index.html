@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background-color: #4CAF50;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body class="bg-zinc-900 text-gray-200 flex justify-center items-center min-h-screen">
+    <div
+        class="chat-container w-[350px] h-[500px] bg-zinc-800 rounded-lg flex flex-col overflow-hidden shadow-lg relative">
+        <div class="chat-header bg-zinc-700 text-white p-3 text-center text-xl font-bold">Chat</div>
+        <div class="chat-messages flex-grow p-4 overflow-y-auto bg-zinc-900 space-y-2 scroll-smooth">
+        </div>
+        <div class="chat-input flex p-3 bg-zinc-800 border-t border-zinc-700">
+            <form class="flex w-full">
+                <input type="text" placeholder="Type a message..."
+                    class="flex-1 px-4 py-2 rounded-full text-sm bg-zinc-700 text-white border-none mr-2 focus:outline-none" />
+                <button type="submit"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full text-sm">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="loading-screen"
+        class="fixed inset-0 bg-zinc-900 bg-opacity-95 flex flex-col justify-center items-center text-white z-50 font-sans">
+        <div class="spinner border-4 border-zinc-700 border-t-green-500 rounded-full w-16 h-16 animate-spin mb-5"></div>
+        <div class="text-lg font-bold animate-pulse">Loading chat...</div>
+    </div>
+
+    <script type="module">
+        import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
+
+        const userId = localStorage.getItem('userId') || generateUserId();
+        if (!localStorage.getItem('userId')) {
+            localStorage.setItem('userId', userId);
+        }
+
+        function generateUserId() {
+            return 'user_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        const socket = io();
+        const form = document.querySelector('.chat-input form');
+        const input = form.querySelector('input');
+        const messages = document.querySelector('.chat-messages');
+        const loadingScreen = document.getElementById('loading-screen');
+
+        function escapeHTML(str) {
+            return str.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        socket.on('chat message', (msg) => {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', msg.senderId === userId ? 'text-right' : 'text-left');
+            messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words ${msg.senderId === userId ? 'bg-green-600 text-white' : 'bg-zinc-700 text-gray-200'}">${escapeHTML(msg.message)}</p>`;
+            messages.appendChild(messageElement);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        socket.on('chat history', (history) => {
+            history.forEach((msg) => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', msg.sender_id === userId ? 'text-right' : 'text-left');
+                messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words ${msg.sender_id === userId ? 'bg-green-600 text-white' : 'bg-zinc-700 text-gray-200'}">${escapeHTML(msg.content)}</p>`;
+                messages.appendChild(messageElement);
+            });
+
+            messages.scrollTop = messages.scrollHeight;
+            loadingScreen.style.display = 'none';
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value.trim()) {
+                const msg = input.value;
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', 'text-right');
+                messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words bg-green-600 text-white">${escapeHTML(msg)}</p>`;
+                messages.appendChild(messageElement);
+                messages.scrollTop = messages.scrollHeight;
+                socket.emit('chat message', { message: msg, senderId: userId });
+                input.value = '';
+            }
+        });
+    </script>
+</body>
+
+</html>
