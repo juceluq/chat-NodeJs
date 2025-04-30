@@ -14,10 +14,20 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.5.0",
+    "ejs": "^3.1.10",
     "express": "5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "morgan": "1.10.0",
     "postgres": "^3.4.5",
     "socket.io": "4.8.1"
+  },
+  "devDependencies": {
+    "semistandard": "^17.0.0"
+  },
+  "eslintConfig": {
+    "extends": "semistandard"
   }
 }

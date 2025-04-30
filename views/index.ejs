@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background-color: #4CAF50;
+      border-radius: 3px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+
+<body class="bg-zinc-900 text-gray-200 flex flex-col min-h-screen">
+    <div id="notification-container" class="fixed top-5 right-5 z-50 space-y-2">
+      <% if (success) { %>
+        <div class="bg-green-500 text-white px-4 py-3 rounded-md shadow-md mb-4" role="alert">
+          <strong class="font-bold">Success!</strong>
+          <span class="block sm:inline"><%= success %></span>
+        </div>
+      <% } %>
+  
+      <% if (error) { %>
+        <div class="bg-red-500 text-white px-4 py-3 rounded-md shadow-md mb-4" role="alert">
+          <strong class="font-bold">Error!</strong>
+          <span class="block sm:inline"><%= error %></span>
+        </div>
+      <% } %>
+    </div>
+  <% if (userId) { %>
+  <nav class="bg-zinc-800 text-white px-4 py-3 flex justify-between items-center shadow-md">
+    <div class="text-lg font-semibold">Mi Chat</div>
+    <div class="relative">
+      <button id="userMenuButton" class="flex items-center gap-2 focus:outline-none">
+        <span>
+          <%= username %>
+        </span>
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.293l3.71-4.06a.75.75 0 111.1 1.02l-4.25 4.65a.75.75 0 01-1.1 0l-4.25-4.65a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+        </svg>
+      </button>
+      <div id="userDropdown" class="hidden absolute right-0 mt-2 w-40 bg-zinc-700 rounded shadow-lg z-50">
+        <form action="/logout" method="POST">
+          <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-white hover:bg-zinc-600">Logout</button>
+        </form>
+      </div>
+    </div>
+  </nav>
+  <% } %>
+
+  <main class="flex justify-center items-center flex-grow">
+
+    <% if (!userId) { %>
+    <div class="w-full max-w-md p-6 bg-zinc-800 rounded-lg shadow-lg space-y-6">
+
+      <div class="flex mb-6 border-b border-gray-700">
+        <button id="loginTab" class="w-1/2 py-2 text-center font-medium transition-colors duration-300 border-b-2 border-blue-500 text-blue-400 hover:text-blue-300 hover:border-blue-500">
+          Login
+        </button>
+        <button id="registerTab" class="w-1/2 py-2 text-center font-medium transition-colors duration-300 border-b-2 border-transparent text-gray-400 hover:text-blue-300 hover:border-blue-500">
+          Register
+        </button>
+
+      </div>
+
+      <form id="loginForm" action="/login" method="POST" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium">Username</label>
+          <input type="text" name="username" required class="w-full p-2 rounded-md bg-zinc-700 border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white hover:border-zinc-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Password</label>
+          <input type="password" name="password" required class="w-full p-2 rounded-md bg-zinc-700 border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white hover:border-zinc-500" />
+        </div>
+
+
+        <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold">Login</button>
+      </form>
+
+      <form id="registerForm" action="/register" method="POST" class="space-y-4 hidden">
+        <div>
+          <label class="block text-sm font-medium">Username</label>
+          <input type="text" name="username" required class="w-full p-2 rounded-md bg-zinc-700 border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white hover:border-zinc-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Password</label>
+          <input type="password" name="password" required class="w-full p-2 rounded-md bg-zinc-700 border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white hover:border-zinc-500" />
+        </div>
+
+
+        <button type="submit" class="w-full py-2 bg-green-600 hover:bg-green-700 rounded text-white font-semibold">Register</button>
+      </form>
+
+    </div>
+    <% } else { %>
+    <div class="chat-container w-[350px] h-[500px] bg-zinc-800 rounded-lg flex flex-col overflow-hidden shadow-lg relative">
+      <div class="chat-header bg-zinc-700 text-white p-3 text-center text-xl font-bold">Chat</div>
+      <div class="chat-messages flex-grow p-4 overflow-y-auto bg-zinc-900 space-y-2 scroll-smooth" id="chat-messages">
+      </div>
+      <div class="chat-input flex p-3 bg-zinc-800 border-t border-zinc-700">
+        <form id="chat-form" class="flex w-full">
+          <input type="text" id="message-input" autocomplete="off" placeholder="Type a message..." class="flex-1 px-4 py-2 rounded-full text-sm bg-zinc-700 text-white border-none mr-2 focus:outline-none" />
+          <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full text-sm">Send</button>
+        </form>
+      </div>
+    </div>
+    <% } %>
+  </main>
+
+  <script type="module">
+    import {
+      io
+    } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
+
+    const userId = "<%= userId %>";
+    const username = "<%= username %>";
+    const socket = io();
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('message-input');
+    const messages = document.getElementById('chat-messages');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!userId) {
+        const loginTab = document.getElementById('loginTab');
+        const registerTab = document.getElementById('registerTab');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+
+        loginTab.addEventListener('click', () => {
+          loginForm.classList.remove('hidden');
+          registerForm.classList.add('hidden');
+
+          loginTab.classList.add('border-blue-500', 'text-blue-400');
+          loginTab.classList.remove('border-transparent', 'text-gray-400');
+
+          registerTab.classList.add('border-transparent', 'text-gray-400');
+          registerTab.classList.remove('border-blue-500', 'text-blue-400');
+        });
+
+        registerTab.addEventListener('click', () => {
+          loginForm.classList.add('hidden');
+          registerForm.classList.remove('hidden');
+
+          registerTab.classList.add('border-blue-500', 'text-blue-400');
+          registerTab.classList.remove('border-transparent', 'text-gray-400');
+
+          loginTab.classList.add('border-transparent', 'text-gray-400');
+          loginTab.classList.remove('border-blue-500', 'text-blue-400');
+        });
+      }
+
+      const button = document.getElementById('userMenuButton');
+      const dropdown = document.getElementById('userDropdown');
+
+      if (button && dropdown) {
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdown.classList.contains('hidden')) {
+            dropdown.classList.add('hidden');
+          }
+        });
+      }
+    });
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') return '';
+      return str.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    async function loadChatHistory() {
+      const response = await fetch('/api/chat-history');
+      if (response.ok) {
+        const chatHistory = await response.json();
+        chatHistory.forEach(msg => {
+          const messageElement = document.createElement('div');
+          messageElement.classList.add('message', msg.sender_id === userId ? 'text-right' : 'text-left');
+          messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words ${msg.sender_id === userId ? 'bg-green-600 text-white' : 'bg-zinc-700 text-gray-200'}">
+                        <span class="font-semibold text-xs text-gray-300">${msg.sender_username}:</span> ${escapeHTML(msg.content)}
+                    </p>`;
+          messages.appendChild(messageElement);
+        });
+        messages.scrollTop = messages.scrollHeight;
+      }
+    }
+
+    socket.on('chat message', (msg) => {
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message', msg.sender_id === userId ? 'text-right' : 'text-left');
+      messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words ${msg.sender_id === userId ? 'bg-green-600 text-white' : 'bg-zinc-700 text-gray-200'}">
+                <span class="font-semibold text-xs text-gray-400">${msg.username}:</span> ${escapeHTML(msg.message)}
+            </p>`;
+      messages.appendChild(messageElement);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (input.value.trim()) {
+        const msg = input.value;
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', 'text-right');
+        messageElement.innerHTML = `<p class="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm break-words bg-green-600 text-white">
+                    <span class="font-semibold text-xs text-gray-400">${username}:</span> ${escapeHTML(msg)}
+                </p>`;
+        messages.appendChild(messageElement);
+        messages.scrollTop = messages.scrollHeight;
+
+        socket.emit('chat message', {
+          message: msg,
+          senderId: userId,
+          username: username
+        });
+        input.value = '';
+      }
+    });
+
+    loadChatHistory();
+  </script>
+</body>
+
+</html>
