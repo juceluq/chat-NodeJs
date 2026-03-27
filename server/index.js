@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import { UserRepository } from '../user-repository.js';
 import { setupSocket, handleConnection } from './sockets.js';
-import { supabase } from './supabaseClient.js';
+import { db } from './mongoClient.js';
 
 const port = process.env.PORT ?? 3000;
 const app = express();
@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 
       req.session.user = {
         id: data.id,
-        username: data.username,
+        username: data.username
       };
     } catch (err) {
       console.error('JWT verification error:', err);
@@ -62,7 +62,6 @@ app.get('/', (req, res) => {
   });
 });
 
-
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -76,13 +75,13 @@ app.post('/login', async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 60
       })
       .cookie('refresh_token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 1000 * 60 * 60 * 24 * 7,
+        maxAge: 1000 * 60 * 60 * 24 * 7
       })
       .redirect('/');
   } catch (error) {
@@ -122,7 +121,7 @@ app.post('/refresh-token', (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 60
       })
       .json({ accessToken: newAccessToken });
   } catch (err) {
@@ -132,14 +131,8 @@ app.post('/refresh-token', (req, res) => {
 
 app.get('/api/chat-history', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('id', { ascending: true });
-    if (error) {
-      throw error;
-    }
-
+    const messages = db.collection('messages');
+    const data = await messages.find({}).sort({ _id: 1 }).toArray();
     res.json(data);
   } catch (err) {
     console.error('Error retrieving chat history:', err);

@@ -6,5 +6,4 @@ dotenv.config();
 const client = new MongoClient(process.env.MONGODB_URI);
 await client.connect();
 
-const db = client.db(process.env.MONGODB_DB_NAME ?? 'nodejsChat');
-export default db;
+export const db = client.db(process.env.MONGODB_DB_NAME ?? 'chat');

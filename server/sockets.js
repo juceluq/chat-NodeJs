@@ -1,6 +1,6 @@
-import { supabase } from './supabaseClient.js';
+import { db } from './mongoClient.js';
 
-export function setupSocket(io) {
+export function setupSocket (io) {
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -20,16 +20,9 @@ export const handleConnection = (socket) => {
 
   const fetchMessages = async () => {
     try {
-      const { data: messages, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('id', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching messages:', error.message);
-      } else {
-        socket.emit('chat history', messages);
-      }
+      const messages = db.collection('messages');
+      const messageList = await messages.find({}).sort({ _id: 1 }).toArray();
+      socket.emit('chat history', messageList);
     } catch (err) {
       console.error('Unexpected error fetching messages:', err);
     }
@@ -43,13 +36,8 @@ export const handleConnection = (socket) => {
 
   socket.on('chat message', async ({ message, senderId, username }) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert([{ content: message, sender_id: senderId, sender_username: username }]);
-
-      if (error) {
-        console.error('Supabase insert error:', error.message);
-      }
+      const messages = db.collection('messages');
+      await messages.insertOne({ content: message, sender_id: senderId, sender_username: username, created_at: new Date() });
     } catch (err) {
       console.error('Unexpected error inserting message:', err);
     }

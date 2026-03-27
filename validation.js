@@ -1,7 +1,7 @@
-import { supabase } from './server/supabaseClient.js';
+import { db } from './server/mongoClient.js';
 
 export class Validation {
-  static username(username) {
+  static username (username) {
     if (typeof username !== 'string') {
       throw new Error('Invalid input types. Expected strings.');
     }
@@ -10,7 +10,7 @@ export class Validation {
     }
   }
 
-  static password(password) {
+  static password (password) {
     if (typeof password !== 'string') {
       throw new Error('Invalid input types. Expected strings.');
     }
@@ -19,21 +19,12 @@ export class Validation {
     }
   }
 
-  static async checkUserExistence(username) {
-    const { data: existingUser, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error checking user existence:', error.message);
-      throw new Error('Error checking user existence.');
-    }
+  static async checkUserExistence (username) {
+    const users = db.collection('users');
+    const existingUser = await users.findOne({ username });
 
     if (existingUser) {
       throw new Error('User already exists.');
     }
   }
-
 }
