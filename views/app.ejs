@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChatApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+    .msg-bubble { max-width: 72%; }
+    .fade-in { animation: fadeIn .15s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    .sidebar-item.active { background: #3730a3; }
+    .sidebar-item:hover:not(.active) { background: #27272a; }
+    [data-panel] { display: none; }
+    [data-panel].active { display: flex; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-gray-200 h-screen flex overflow-hidden select-none">
+
+  <!-- ===== SIDEBAR IZQUIERDO ===== -->
+  <aside class="w-16 bg-zinc-900 flex flex-col items-center py-4 gap-3 border-r border-zinc-800 shrink-0">
+    <!-- Avatar propio -->
+    <button id="btnMyProfile" title="Mi perfil"
+      class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center overflow-hidden text-sm font-bold hover:ring-2 hover:ring-indigo-400 transition shrink-0">
+      <span id="ownAvatarLetter"><%= username.charAt(0).toUpperCase() %></span>
+      <img id="ownAvatarImg" class="w-full h-full object-cover hidden" alt="avatar" />
+    </button>
+
+    <div class="w-8 h-px bg-zinc-700 my-1"></div>
+
+    <!-- Chats -->
+    <button data-nav="chats" title="Chats"
+      class="nav-btn sidebar-item active w-10 h-10 rounded-xl flex items-center justify-center transition text-zinc-300">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+      </svg>
+    </button>
+
+    <!-- Contactos -->
+    <button data-nav="contacts" title="Contactos"
+      class="nav-btn sidebar-item relative w-10 h-10 rounded-xl flex items-center justify-center transition text-zinc-300">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <span id="reqBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold flex items-center justify-center">0</span>
+    </button>
+
+    <!-- Spacer -->
+    <div class="flex-1"></div>
+
+    <!-- Logout -->
+    <form action="/logout" method="POST">
+      <button type="submit" title="Cerrar sesión"
+        class="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+        </svg>
+      </button>
+    </form>
+  </aside>
+
+  <!-- ===== PANEL CHATS ===== -->
+  <div data-panel="chats" class="active w-72 bg-zinc-900 border-r border-zinc-800 flex-col shrink-0">
+    <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
+      <h2 class="font-semibold text-sm">Chats</h2>
+      <button id="btnNewGroup" title="Nuevo grupo"
+        class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-indigo-600 flex items-center justify-center transition text-zinc-300 hover:text-white">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+      </button>
+    </div>
+    <div id="chatList" class="flex-1 overflow-y-auto space-y-0.5 p-2"></div>
+  </div>
+
+  <!-- ===== PANEL CONTACTOS ===== -->
+  <div data-panel="contacts" class="w-72 bg-zinc-900 border-r border-zinc-800 flex-col shrink-0">
+    <div class="p-4 border-b border-zinc-800">
+      <h2 class="font-semibold text-sm mb-3">Contactos</h2>
+      <div class="relative">
+        <input id="searchInput" type="text" placeholder="Buscar usuarios…"
+          class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-xs text-white" />
+        <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+        </svg>
+      </div>
+    </div>
+    <div id="searchResults" class="hidden border-b border-zinc-800 max-h-48 overflow-y-auto p-2 space-y-0.5 bg-zinc-950/60"></div>
+    <div id="requestsSection" class="hidden border-b border-zinc-800 px-2 py-2 space-y-1"></div>
+    <div id="contactList" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
+  </div>
+
+  <!-- ===== ÁREA PRINCIPAL ===== -->
+  <main class="flex-1 flex flex-col min-w-0">
+
+    <!-- Chat Header -->
+    <header id="chatHeader" class="hidden h-14 bg-zinc-900 border-b border-zinc-800 px-4 flex items-center gap-3 shrink-0">
+      <div id="chatHeaderAvatar" class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <p id="chatHeaderName" class="font-semibold text-sm truncate"></p>
+        <p id="chatHeaderSub" class="text-xs text-zinc-400 truncate"></p>
+      </div>
+      <div id="chatHeaderActions" class="flex items-center gap-2"></div>
+    </header>
+
+    <!-- Typing indicator -->
+    <div id="typingBar" class="hidden px-4 py-1 text-xs text-zinc-400 italic bg-zinc-900/50 border-b border-zinc-800/50"></div>
+
+    <!-- Mensajes -->
+    <div id="messageArea" class="flex-1 overflow-y-auto p-4 space-y-1 bg-zinc-950">
+      <div id="emptyState" class="flex flex-col items-center justify-center h-full text-zinc-600 gap-2">
+        <svg class="w-16 h-16 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+        </svg>
+        <p class="text-sm">Selecciona un chat para empezar</p>
+      </div>
+    </div>
+
+    <!-- Barra edición -->
+    <div id="editBar" class="hidden px-4 py-1.5 bg-indigo-950/60 border-t border-indigo-800/40 flex items-center gap-2 text-xs text-indigo-300">
+      <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span>Editando mensaje</span>
+      <button id="cancelEdit" type="button" class="ml-auto text-indigo-400 hover:text-white transition">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Input -->
+    <div id="inputBar" class="hidden p-3 bg-zinc-900 border-t border-zinc-800">
+      <form id="msgForm" class="flex gap-2 items-end">
+        <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje…"
+          class="flex-1 px-4 py-2 rounded-2xl bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white resize-none max-h-32 overflow-y-auto"
+          style="line-height:1.5"></textarea>
+        <button type="submit"
+          class="w-10 h-10 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ===== MODAL PERFIL ===== -->
+  <div id="profileModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg">Mi perfil</h2>
+        <button id="closeProfile" class="text-zinc-400 hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Avatar -->
+      <div class="flex flex-col items-center mb-5 gap-2">
+        <label for="avatarInput" class="cursor-pointer group relative">
+          <div id="profileAvatarWrapper" class="w-20 h-20 rounded-full bg-indigo-600 flex items-center justify-center text-2xl font-bold overflow-hidden ring-2 ring-zinc-700 group-hover:ring-indigo-500 transition">
+            <span id="profileAvatarLetter"><%= username.charAt(0).toUpperCase() %></span>
+            <img id="profileAvatarImg" class="w-full h-full object-cover hidden" alt="avatar" />
+          </div>
+          <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+        </label>
+        <input id="avatarInput" type="file" accept="image/*" class="hidden" />
+        <p class="font-semibold"><%= username %></p>
+      </div>
+
+      <!-- Bio -->
+      <div class="mb-4">
+        <label class="block text-xs font-medium text-zinc-400 mb-1">Biografía</label>
+        <textarea id="bioInput" rows="2" maxlength="200" placeholder="Escribe algo sobre ti…"
+          class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white resize-none"></textarea>
+        <button id="saveBio" class="mt-1.5 px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 rounded-lg transition">Guardar</button>
+      </div>
+
+      <!-- Cambiar contraseña -->
+      <details class="text-sm">
+        <summary class="cursor-pointer text-zinc-400 hover:text-white transition mb-2">Cambiar contraseña</summary>
+        <div class="space-y-2 mt-2">
+          <input id="currentPwd" type="password" placeholder="Contraseña actual"
+            class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white" />
+          <input id="newPwd" type="password" placeholder="Nueva contraseña"
+            class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white" />
+          <button id="savePwd" class="w-full py-1.5 text-xs bg-zinc-700 hover:bg-zinc-600 rounded-lg transition">Actualizar contraseña</button>
+          <p id="pwdMsg" class="text-xs hidden"></p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ===== MODAL NUEVO GRUPO ===== -->
+  <div id="groupModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg">Nuevo grupo</h2>
+        <button id="closeGroup" class="text-zinc-400 hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <input id="groupName" type="text" maxlength="40" placeholder="Nombre del grupo"
+        class="w-full px-3 py-2 mb-3 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white" />
+      <p class="text-xs text-zinc-400 mb-2">Selecciona miembros:</p>
+      <div id="groupMemberList" class="max-h-48 overflow-y-auto space-y-1 mb-4"></div>
+      <button id="createGroupBtn" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition">Crear grupo</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 bg-zinc-800 border border-zinc-700 text-sm px-4 py-2 rounded-xl shadow-lg z-50 text-white transition"></div>
+
+  <!-- ===== MODAL PERFIL USUARIO ===== -->
+  <div id="userProfileModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-2xl w-full max-w-xs mx-4 shadow-2xl overflow-hidden">
+      <div class="flex justify-end p-3 pb-0">
+        <button id="closeUserProfile" class="text-zinc-400 hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="flex flex-col items-center gap-2 px-6 pb-6">
+        <div id="upAvatar" class="w-20 h-20 shrink-0"></div>
+        <div class="flex items-center gap-2 mt-1">
+          <h2 id="upUsername" class="font-bold text-lg leading-none"></h2>
+          <span id="upOnlineDot" class="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0"></span>
+        </div>
+        <p id="upStatus" class="text-xs text-zinc-400"></p>
+        <p id="upBio" class="text-sm text-zinc-300 text-center max-w-[200px] min-h-[20px] italic"></p>
+        <p id="upJoined" class="text-xs text-zinc-500 mt-1"></p>
+        <button id="upChatBtn" class="mt-3 w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-semibold transition">Enviar mensaje</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL CONFIRMAR ELIMINAR ===== -->
+  <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-2xl w-full max-w-xs mx-4 p-5 shadow-2xl">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-9 h-9 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div>
+          <p class="font-semibold text-sm">¿Eliminar mensaje?</p>
+          <p class="text-xs text-zinc-400">Esta acción no se puede deshacer.</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="confirmCancel" class="flex-1 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-sm transition">Cancelar</button>
+        <button id="confirmOk" class="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-semibold transition">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EMOJI PICKER ===== -->
+  <div id="emojiPicker" class="hidden fixed z-[60] bg-zinc-800 border border-zinc-700 rounded-xl p-1.5 shadow-xl flex gap-0.5">
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="👍">👍</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="❤️">❤️</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="😂">😂</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="😮">😮</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="😢">😢</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="🔥">🔥</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="👏">👏</button>
+    <button class="emoji-pick w-8 h-8 rounded-lg hover:bg-zinc-600 text-lg flex items-center justify-center transition" data-emoji="🎉">🎉</button>
+  </div>
+
+  <script type="module">
+    import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
+
+    // ---- Globals ----
+    const ME = { id: '<%= userId %>', username: '<%= username %>' };
+    const socket = io();
+
+    let activeChat = null; // { id, type, name, members }
+    let contacts = [];
+    let onlineSet = new Set();
+    let typingTimers = {};
+    let editingMsgId = null;
+
+    // ---- Escape HTML ----
+    function esc (str) {
+      if (typeof str !== 'string') return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ---- Toast ----
+    function toast (msg, color = 'bg-zinc-800') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed bottom-5 right-5 ${color} border border-zinc-700 text-sm px-4 py-2 rounded-xl shadow-lg z-50 text-white`;
+      el.classList.remove('hidden');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // ---- Avatar helper ----
+    function avatarHTML (name, avatarUrl, size = 'w-8 h-8') {
+      if (avatarUrl) {
+        return `<img src="${esc(avatarUrl)}" class="${size} rounded-full object-cover" alt="">`;
+      }
+      return `<div class="${size} rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">${esc(name?.charAt(0)?.toUpperCase() ?? '?')}</div>`;
+    }
+
+    // ---- Format time ----
+    function fmtTime (date) {
+      const d = new Date(date);
+      const now = new Date();
+      const diffDays = Math.floor((now - d) / 86400000);
+      if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (diffDays === 1) return 'Ayer';
+      if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'short' });
+      return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    }
+
+    // ========================================
+    //  NAV
+    // ========================================
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('[data-panel]').forEach(p => p.classList.remove('active'));
+        document.querySelector(`[data-panel="${btn.dataset.nav}"]`).classList.add('active');
+      });
+    });
+
+    // ========================================
+    //  LOAD PROFILE
+    // ========================================
+    async function loadProfile () {
+      const res = await fetch('/api/profile');
+      if (!res.ok) return;
+      const profile = await res.json();
+      document.getElementById('bioInput').value = profile.bio ?? '';
+      if (profile.avatar) {
+        document.getElementById('ownAvatarLetter').classList.add('hidden');
+        document.getElementById('ownAvatarImg').src = profile.avatar;
+        document.getElementById('ownAvatarImg').classList.remove('hidden');
+        document.getElementById('profileAvatarLetter').classList.add('hidden');
+        document.getElementById('profileAvatarImg').src = profile.avatar;
+        document.getElementById('profileAvatarImg').classList.remove('hidden');
+      }
+    }
+
+    // ========================================
+    //  PROFILE MODAL
+    // ========================================
+    document.getElementById('btnMyProfile').addEventListener('click', () => {
+      document.getElementById('profileModal').classList.remove('hidden');
+    });
+    document.getElementById('closeProfile').addEventListener('click', () => {
+      document.getElementById('profileModal').classList.add('hidden');
+    });
+    document.getElementById('profileModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveBio').addEventListener('click', async () => {
+      const bio = document.getElementById('bioInput').value;
+      const res = await fetch('/api/profile/bio', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bio }) });
+      if (res.ok) toast('Biografía guardada', 'bg-emerald-700');
+      else toast('Error al guardar', 'bg-red-700');
+    });
+
+    document.getElementById('avatarInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append('avatar', file);
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
+      if (res.ok) {
+        const { avatar } = await res.json();
+        [document.getElementById('ownAvatarImg'), document.getElementById('profileAvatarImg')].forEach(img => {
+          img.src = avatar; img.classList.remove('hidden');
+        });
+        document.getElementById('ownAvatarLetter').classList.add('hidden');
+        document.getElementById('profileAvatarLetter').classList.add('hidden');
+        toast('Avatar actualizado', 'bg-emerald-700');
+      } else toast('Error al subir imagen', 'bg-red-700');
+    });
+
+    document.getElementById('savePwd').addEventListener('click', async () => {
+      const currentPassword = document.getElementById('currentPwd').value;
+      const newPassword = document.getElementById('newPwd').value;
+      const msg = document.getElementById('pwdMsg');
+      const res = await fetch('/api/profile/password', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword, newPassword }) });
+      const data = await res.json();
+      msg.textContent = res.ok ? '¡Contraseña actualizada!' : (data.error ?? 'Error');
+      msg.className = `text-xs ${res.ok ? 'text-emerald-400' : 'text-red-400'}`;
+      msg.classList.remove('hidden');
+    });
+
+    // ========================================
+    //  CONTACTS
+    // ========================================
+    async function loadContacts () {
+      const res = await fetch('/api/contacts');
+      contacts = res.ok ? await res.json() : [];
+      renderContactList();
+      renderGroupMemberList();
+      await loadRequests();
+    }
+
+    async function loadRequests () {
+      const res = await fetch('/api/contacts/requests');
+      const reqs = res.ok ? await res.json() : [];
+      renderRequests(reqs);
+    }
+
+    function renderRequests (reqs) {
+      const section = document.getElementById('requestsSection');
+      const badge = document.getElementById('reqBadge');
+      if (!reqs.length) {
+        section.classList.add('hidden');
+        section.innerHTML = '';
+        badge.classList.add('hidden');
+        return;
+      }
+      badge.textContent = reqs.length;
+      badge.classList.remove('hidden');
+      section.classList.remove('hidden');
+      section.innerHTML = '<p class="text-[10px] font-semibold text-zinc-400 px-1 mb-1">Solicitudes pendientes</p>';
+      reqs.forEach(r => {
+        if (!r.from) return;
+        const el = document.createElement('div');
+        el.className = 'flex items-center gap-2 px-1 py-1 rounded-lg bg-zinc-800/50';
+        el.innerHTML = `${avatarHTML(r.from.username, r.from.avatar, 'w-7 h-7')}
+          <p class="flex-1 text-sm truncate">${esc(r.from.username)}</p>
+          <button data-accept="${r.requestId}" class="text-xs px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition">✓</button>
+          <button data-reject="${r.requestId}" class="text-xs px-2 py-0.5 bg-zinc-600 hover:bg-zinc-500 rounded-lg transition">✕</button>`;
+        el.querySelector('[data-accept]').addEventListener('click', async () => {
+          const resp = await fetch(`/api/contacts/requests/${r.requestId}/accept`, { method: 'POST' });
+          if (resp.ok) { toast(`${r.from.username} es ahora tu contacto`, 'bg-emerald-700'); await loadContacts(); }
+          else toast('Error al aceptar', 'bg-red-700');
+        });
+        el.querySelector('[data-reject]').addEventListener('click', async () => {
+          const resp = await fetch(`/api/contacts/requests/${r.requestId}/reject`, { method: 'POST' });
+          if (resp.ok) await loadRequests();
+          else toast('Error al rechazar', 'bg-red-700');
+        });
+        section.appendChild(el);
+      });
+    }
+
+    function renderContactList () {
+      const list = document.getElementById('contactList');
+      list.innerHTML = '';
+      if (!contacts.length) {
+        list.innerHTML = '<p class="text-xs text-zinc-500 p-2 text-center">Sin contactos aún. Búscalos arriba.</p>';
+        return;
+      }
+      contacts.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer sidebar-item transition';
+        el.innerHTML = `
+          <button class="relative shrink-0 hover:opacity-80 transition" data-profile="${esc(c.id)}">${avatarHTML(c.username, c.avatar)}
+            <span class="online-dot-${c.id} absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-900 ${onlineSet.has(c.id) ? 'bg-emerald-400' : 'bg-zinc-600'}"></span>
+          </button>
+          <button class="flex-1 min-w-0 text-left" data-profile="${esc(c.id)}">
+            <p class="text-sm font-medium truncate">${esc(c.username)}</p>
+            ${c.bio ? `<p class="text-xs text-zinc-400 truncate">${esc(c.bio)}</p>` : ''}
+          </button>
+          <button data-open-chat="${c.id}" title="Abrir chat"
+            class="w-7 h-7 rounded-lg bg-zinc-700 hover:bg-indigo-600 flex items-center justify-center transition shrink-0">
+            <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+            </svg>
+          </button>`;
+        list.appendChild(el);
+        el.querySelector('[data-open-chat]').addEventListener('click', (e) => { e.stopPropagation(); openDirectChat(c.id); });
+        el.querySelectorAll('[data-profile]').forEach(p => p.addEventListener('click', () => openUserProfile(c.id)));
+      });
+    }
+
+    // Buscar usuarios
+    let searchTimer;
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      const q = e.target.value.trim();
+      const results = document.getElementById('searchResults');
+      if (q.length < 2) { results.classList.add('hidden'); results.innerHTML = ''; return; }
+      searchTimer = setTimeout(async () => {
+        const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(q)}`);
+        const users = res.ok ? await res.json() : [];
+        results.innerHTML = '';
+        if (!users.length) {
+          results.innerHTML = '<p class="text-xs text-zinc-500 p-2">Sin resultados.</p>';
+        } else {
+          users.forEach(u => {
+            const isContact = contacts.some(c => c.id === u.id);
+            const el = document.createElement('div');
+            el.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg';
+            el.innerHTML = `${avatarHTML(u.username, u.avatar, 'w-7 h-7')}
+              <p class="flex-1 text-sm">${esc(u.username)}</p>
+              ${isContact
+                ? '<span class="text-xs text-zinc-500">Contacto</span>'
+                : u.requestPending
+                  ? `<span class="text-xs text-zinc-400">Pendiente</span>`
+                  : `<button data-add="${u.id}" class="text-xs px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg transition">Añadir</button>`}`;
+            results.appendChild(el);
+            if (!isContact && !u.requestPending) {
+              el.querySelector('[data-add]').addEventListener('click', async () => {
+                const r = await fetch(`/api/contacts/${u.id}`, { method: 'POST' });
+                if (r.ok) {
+                  const btn = el.querySelector('[data-add]');
+                  if (btn) { const span = document.createElement('span'); span.className = 'text-xs text-zinc-400'; span.textContent = 'Pendiente'; btn.replaceWith(span); }
+                  toast(`Solicitud enviada a ${u.username}`, 'bg-indigo-700');
+                } else {
+                  const data = await r.json();
+                  toast(data.error ?? 'Error al enviar solicitud', 'bg-red-700');
+                }
+              });
+            }
+          });
+        }
+        results.classList.remove('hidden');
+      }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#searchInput') && !e.target.closest('#searchResults')) {
+        document.getElementById('searchResults').classList.add('hidden');
+      }
+    });
+
+    // ========================================
+    //  CHATS LIST
+    // ========================================
+    async function loadChats () {
+      const res = await fetch('/api/chats');
+      const chats = res.ok ? await res.json() : [];
+      renderChatList(chats);
+    }
+
+    function renderChatList (chats) {
+      const list = document.getElementById('chatList');
+      list.innerHTML = '';
+      if (!chats.length) {
+        list.innerHTML = '<p class="text-xs text-zinc-500 p-3 text-center">Sin chats. Abre uno desde Contactos.</p>';
+        return;
+      }
+      chats.forEach(chat => {
+        const name = chat.type === 'direct' ? (chat.otherUser?.username ?? 'Desconocido') : chat.name;
+        const avatar = chat.type === 'direct' ? chat.otherUser?.avatar : null;
+        const isActive = activeChat?.id === chat.id;
+        const el = document.createElement('div');
+        el.dataset.chatId = chat.id;
+        el.className = `chat-item flex items-center gap-2.5 px-2 py-2.5 rounded-xl cursor-pointer sidebar-item transition ${isActive ? 'active' : ''}`;
+        el.innerHTML = `
+          <div class="relative shrink-0">${avatarHTML(name, avatar)}
+            ${chat.type === 'direct' ? `<span class="online-dot-${chat.otherUser?.id} absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-900 ${onlineSet.has(chat.otherUser?.id) ? 'bg-emerald-400' : 'bg-zinc-600'}"></span>` : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-baseline gap-1">
+              <p class="text-sm font-medium truncate">${esc(name)}</p>
+              <span class="text-[10px] text-zinc-500 shrink-0">${chat.lastMessage ? fmtTime(chat.lastMessage.createdAt) : ''}</span>
+            </div>
+            <p class="text-xs text-zinc-400 truncate">${chat.lastMessage ? esc(chat.lastMessage.content) : (chat.type === 'group' ? `${chat.members?.length ?? 0} miembros` : '')}</p>
+          </div>`;
+        el.addEventListener('click', () => openChat(chat));
+        list.appendChild(el);
+      });
+    }
+
+    // ========================================
+    //  OPEN CHAT
+    // ========================================
+    async function openDirectChat (targetId) {
+      const res = await fetch(`/api/chats/direct/${targetId}`, { method: 'POST' });
+      if (!res.ok) { toast('Error abriendo chat', 'bg-red-700'); return; }
+      const chat = await res.json(); // ya viene enriquecido con otherUser
+      document.querySelector('[data-nav="chats"]').click();
+      await loadChats();
+      openChat(chat);
+    }
+
+    async function openChat (chat) {
+      activeChat = chat;
+      socket.emit('chat:join', chat.id);
+
+      // Marcar ítems activos
+      document.querySelectorAll('.chat-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.chatId === chat.id);
+      });
+
+      // Header
+      const header = document.getElementById('chatHeader');
+      const name = chat.type === 'direct' ? (chat.otherUser?.username ?? 'Desconocido') : chat.name;
+      const avatar = chat.type === 'direct' ? chat.otherUser?.avatar : null;
+      header.classList.remove('hidden');
+      header.style.display = 'flex';
+      document.getElementById('chatHeaderAvatar').innerHTML = avatarHTML(name, avatar, 'w-8 h-8');
+      document.getElementById('chatHeaderName').textContent = name;
+      document.getElementById('chatHeaderSub').textContent = chat.type === 'group' ? `${chat.members?.length ?? 0} miembros` : (onlineSet.has(chat.otherUser?.id) ? 'En línea' : 'Desconectado');
+
+      const headerAvatar = document.getElementById('chatHeaderAvatar');
+      const headerNameEl = document.getElementById('chatHeaderName');
+      if (chat.type === 'direct' && chat.otherUser) {
+        const uid = chat.otherUser.id;
+        headerAvatar.style.cursor = 'pointer';
+        headerAvatar.onclick = () => openUserProfile(uid);
+        headerNameEl.style.cursor = 'pointer';
+        headerNameEl.onclick = () => openUserProfile(uid);
+      } else {
+        headerAvatar.style.cursor = '';
+        headerAvatar.onclick = null;
+        headerNameEl.style.cursor = '';
+        headerNameEl.onclick = null;
+      }
+
+      document.getElementById('inputBar').classList.remove('hidden');
+      document.getElementById('emptyState').classList.add('hidden');
+
+      // Cargar mensajes
+      const res = await fetch(`/api/chats/${chat.id}/messages`);
+      const msgs = res.ok ? await res.json() : [];
+      const area = document.getElementById('messageArea');
+      area.innerHTML = '';
+      msgs.forEach(m => appendMessage(m));
+      area.scrollTop = area.scrollHeight;
+
+      // Marcar leídos
+      socket.emit('message:read', { chatId: chat.id });
+    }
+
+    // ========================================
+    //  RENDER MESSAGE
+    // ========================================
+    let _pendingDeleteId = null;
+    let _pickerMsgId = null;
+
+    function reactionsHTML (reactions) {
+      if (!reactions?.length) return '';
+      const counts = {};
+      const myReacted = new Set();
+      reactions.forEach(r => {
+        counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+        if (r.userId === ME.id) myReacted.add(r.emoji);
+      });
+      return Object.entries(counts).map(([emoji, count]) =>
+        `<button data-emoji="${emoji}" class="reaction-btn text-xs px-1.5 py-0.5 rounded-full border ${myReacted.has(emoji) ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-200' : 'bg-zinc-900/60 border-zinc-700 text-zinc-300'} hover:border-indigo-400 transition">${emoji} ${count}</button>`
+      ).join('');
+    }
+
+    function bindReactionClicks (wrapper, msgId) {
+      wrapper.querySelectorAll('.reaction-btn').forEach(btn => {
+        btn.addEventListener('click', () => socket.emit('message:react', { msgId, emoji: btn.dataset.emoji }));
+      });
+    }
+
+    function updateMessageReactions (msgId, reactions) {
+      const wrapper = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (!wrapper) return;
+      const row = wrapper.querySelector('.reactions-row');
+      if (row) { row.innerHTML = reactionsHTML(reactions); bindReactionClicks(wrapper, msgId); }
+    }
+
+    function appendMessage (msg) {
+      const area = document.getElementById('messageArea');
+      const isMe = msg.senderId === ME.id;
+      const wrapper = document.createElement('div');
+      wrapper.className = `fade-in group/msg flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-1.5`;
+      wrapper.dataset.msgId = msg.id;
+
+      const time = fmtTime(msg.createdAt);
+      const readIcon = isMe
+        ? `<svg class="w-3 h-3 inline ml-0.5 ${msg.readBy?.length > 1 ? 'text-indigo-400' : 'text-zinc-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`
+        : '';
+      const editedMark = msg.editedAt && !msg.deleted ? '<span class="text-[9px] opacity-50 ml-0.5">editado</span>' : '';
+
+      if (msg.deleted) {
+        wrapper.innerHTML = !isMe
+          ? `<div class="w-6 h-6 shrink-0"></div>
+             <div class="msg-bubble bg-zinc-800/50 px-3 py-2 rounded-2xl rounded-bl-sm text-sm">
+               <p class="text-zinc-500 italic">Mensaje eliminado</p>
+             </div>`
+          : `<div class="msg-bubble bg-indigo-900/30 px-3 py-2 rounded-2xl rounded-br-sm text-sm">
+               <p class="text-indigo-300/50 italic">Mensaje eliminado</p>
+             </div>`;
+        area.appendChild(wrapper);
+        return;
+      }
+
+      const reactBtnHTML = `<button class="react-btn opacity-0 group-hover/msg:opacity-100 w-6 h-6 rounded-full bg-zinc-700/80 hover:bg-zinc-600 flex items-center justify-center transition-opacity shrink-0" title="Reaccionar">
+        <svg class="w-3.5 h-3.5 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>`;
+
+      if (!isMe) {
+        wrapper.innerHTML = `
+          <button class="shrink-0 self-end hover:opacity-80 transition" data-profile="${esc(msg.senderId)}">${avatarHTML(msg.senderUsername, msg.senderAvatar, 'w-6 h-6')}</button>
+          <div class="flex flex-col items-start gap-0.5 min-w-0">
+            <div class="flex items-end gap-1">
+              <div class="msg-bubble bg-zinc-800 text-gray-200 px-3 py-2 rounded-2xl rounded-bl-sm text-sm break-words space-y-0.5">
+                ${activeChat?.type === 'group' ? `<p class="text-[10px] font-semibold text-indigo-400">${esc(msg.senderUsername)}</p>` : ''}
+                <p class="msg-content">${esc(msg.content)}</p>
+                <p class="msg-meta text-[10px] text-zinc-500 text-right">${time}${editedMark}</p>
+              </div>
+              ${reactBtnHTML}
+            </div>
+            <div class="reactions-row flex flex-wrap gap-0.5 pl-0.5">${reactionsHTML(msg.reactions)}</div>
+          </div>`;
+        wrapper.querySelector('[data-profile]').addEventListener('click', (e) => openUserProfile(e.currentTarget.dataset.profile));
+      } else {
+        wrapper.innerHTML = `
+          <div class="flex flex-col items-end gap-0.5 min-w-0">
+            <div class="flex items-end gap-1">
+              <div class="opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                ${reactBtnHTML}
+                <button class="msg-edit-btn w-6 h-6 rounded-md bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center" title="Editar">
+                  <svg class="w-3 h-3 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="msg-del-btn w-6 h-6 rounded-md bg-zinc-700 hover:bg-red-700 flex items-center justify-center" title="Eliminar">
+                  <svg class="w-3 h-3 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+              <div class="msg-bubble bg-indigo-600 text-white px-3 py-2 rounded-2xl rounded-br-sm text-sm break-words space-y-0.5">
+                <p class="msg-content">${esc(msg.content)}</p>
+                <p class="msg-meta text-[10px] text-indigo-300 text-right">${time}${editedMark}${readIcon}</p>
+              </div>
+            </div>
+            <div class="reactions-row flex flex-wrap gap-0.5 justify-end pr-0.5">${reactionsHTML(msg.reactions)}</div>
+          </div>`;
+        wrapper.querySelector('.msg-edit-btn').addEventListener('click', () => startEdit(msg.id, msg.content));
+        wrapper.querySelector('.msg-del-btn').addEventListener('click', () => confirmDelete(msg.id));
+      }
+
+      wrapper.querySelector('.react-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showEmojiPicker(e.currentTarget, msg.id);
+      });
+      bindReactionClicks(wrapper, msg.id);
+      area.appendChild(wrapper);
+    }
+
+    // ---- Edit helpers ----
+    function startEdit (msgId, currentContent) {
+      editingMsgId = msgId;
+      msgInput.value = currentContent;
+      msgInput.style.height = 'auto';
+      msgInput.style.height = Math.min(msgInput.scrollHeight, 128) + 'px';
+      document.getElementById('editBar').classList.remove('hidden');
+      msgInput.focus();
+    }
+
+    function cancelEdit () {
+      editingMsgId = null;
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+      document.getElementById('editBar').classList.add('hidden');
+    }
+
+    function confirmDelete (msgId) {
+      _pendingDeleteId = msgId;
+      document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    document.getElementById('cancelEdit').addEventListener('click', cancelEdit);
+    document.getElementById('confirmOk').addEventListener('click', () => {
+      if (_pendingDeleteId) socket.emit('message:delete', { msgId: _pendingDeleteId });
+      _pendingDeleteId = null;
+      document.getElementById('confirmModal').classList.add('hidden');
+    });
+    document.getElementById('confirmCancel').addEventListener('click', () => {
+      _pendingDeleteId = null;
+      document.getElementById('confirmModal').classList.add('hidden');
+    });
+    document.getElementById('confirmModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('confirmModal')) {
+        _pendingDeleteId = null;
+        document.getElementById('confirmModal').classList.add('hidden');
+      }
+    });
+
+    // ---- Emoji picker ----
+    function showEmojiPicker (btn, msgId) {
+      _pickerMsgId = msgId;
+      const picker = document.getElementById('emojiPicker');
+      picker.classList.remove('hidden');
+      const rect = btn.getBoundingClientRect();
+      picker.style.top = `${rect.top - 52}px`;
+      picker.style.left = `${Math.min(rect.left, window.innerWidth - 290)}px`;
+      setTimeout(() => {
+        document.addEventListener('click', function handler (e) {
+          if (!e.target.closest('#emojiPicker')) {
+            picker.classList.add('hidden');
+            document.removeEventListener('click', handler);
+          }
+        });
+      }, 0);
+    }
+
+    document.querySelectorAll('.emoji-pick').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (_pickerMsgId) socket.emit('message:react', { msgId: _pickerMsgId, emoji: btn.dataset.emoji });
+        _pickerMsgId = null;
+        document.getElementById('emojiPicker').classList.add('hidden');
+      });
+    });
+
+    // ---- User profile ----
+    async function openUserProfile (userId) {
+      if (userId === ME.id) { document.getElementById('profileModal').classList.remove('hidden'); return; }
+      const res = await fetch(`/api/profile/${userId}`);
+      if (!res.ok) return;
+      const user = await res.json();
+      document.getElementById('upAvatar').innerHTML = avatarHTML(user.username, user.avatar, 'w-20 h-20 text-2xl');
+      document.getElementById('upUsername').textContent = user.username;
+      const isOnline = onlineSet.has(userId);
+      document.getElementById('upOnlineDot').className = `w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400' : 'bg-zinc-600'}`;
+      document.getElementById('upStatus').textContent = isOnline ? 'En línea' : 'Desconectado';
+      document.getElementById('upBio').textContent = user.bio || 'Sin biografía';
+      document.getElementById('upJoined').textContent = user.createdAt
+        ? `Miembro desde ${new Date(user.createdAt).toLocaleDateString('es', { month: 'long', year: 'numeric' })}`
+        : '';
+      const chatBtn = document.getElementById('upChatBtn');
+      chatBtn.onclick = () => { document.getElementById('userProfileModal').classList.add('hidden'); openDirectChat(userId); };
+      document.getElementById('userProfileModal').classList.remove('hidden');
+    }
+
+    document.getElementById('closeUserProfile').addEventListener('click', () => {
+      document.getElementById('userProfileModal').classList.add('hidden');
+    });
+    document.getElementById('userProfileModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('userProfileModal')) document.getElementById('userProfileModal').classList.add('hidden');
+    });
+
+    // ========================================
+    //  SEND MESSAGE
+    // ========================================
+    const msgForm = document.getElementById('msgForm');
+    const msgInput = document.getElementById('msgInput');
+
+    msgInput.addEventListener('input', () => {
+      msgInput.style.height = 'auto';
+      msgInput.style.height = Math.min(msgInput.scrollHeight, 128) + 'px';
+      if (activeChat) socket.emit('typing:start', { chatId: activeChat.id });
+      clearTimeout(msgInput._typingTimer);
+      msgInput._typingTimer = setTimeout(() => {
+        if (activeChat) socket.emit('typing:stop', { chatId: activeChat.id });
+      }, 1500);
+    });
+
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); msgForm.requestSubmit(); }
+    });
+
+    msgForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const content = msgInput.value.trim();
+      if (!content || !activeChat) return;
+      if (editingMsgId) {
+        socket.emit('message:edit', { msgId: editingMsgId, content });
+        cancelEdit();
+      } else {
+        socket.emit('message:send', { chatId: activeChat.id, content });
+      }
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+    });
+
+    // ========================================
+    //  SOCKET EVENTS
+    // ========================================
+    socket.on('message:new', (msg) => {
+      if (msg.chatId === activeChat?.id) {
+        appendMessage(msg);
+        document.getElementById('messageArea').scrollTop = document.getElementById('messageArea').scrollHeight;
+        socket.emit('message:read', { chatId: msg.chatId });
+      }
+      loadChats();
+    });
+
+    socket.on('message:read', ({ chatId, userId }) => {
+      if (chatId === activeChat?.id && userId !== ME.id) {
+        document.querySelectorAll('[data-msg-id]').forEach(el => {
+          const svg = el.querySelector('svg');
+          if (svg) svg.classList.replace('text-zinc-500', 'text-indigo-400');
+        });
+      }
+    });
+
+    socket.on('message:edited', ({ msgId, content }) => {
+      const wrapper = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (!wrapper) return;
+      const contentEl = wrapper.querySelector('.msg-content');
+      if (contentEl) contentEl.textContent = content;
+      const metaEl = wrapper.querySelector('.msg-meta');
+      if (metaEl && !metaEl.querySelector('.edited-mark')) {
+        const mark = document.createElement('span');
+        mark.className = 'edited-mark text-[9px] opacity-50 ml-0.5';
+        mark.textContent = 'editado';
+        metaEl.appendChild(mark);
+      }
+    });
+
+    socket.on('message:deleted', ({ msgId }) => {
+      const wrapper = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (!wrapper) return;
+      const isMe = wrapper.classList.contains('justify-end');
+      wrapper.className = `flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-1.5`;
+      wrapper.innerHTML = isMe
+        ? `<div class="msg-bubble bg-indigo-900/30 px-3 py-2 rounded-2xl rounded-br-sm text-sm">
+             <p class="text-indigo-300/50 italic">Mensaje eliminado</p>
+           </div>`
+        : `<div class="w-6 h-6 shrink-0"></div>
+           <div class="msg-bubble bg-zinc-800/50 px-3 py-2 rounded-2xl rounded-bl-sm text-sm">
+             <p class="text-zinc-500 italic">Mensaje eliminado</p>
+           </div>`;
+    });
+
+    socket.on('message:reaction', ({ msgId, reactions }) => {
+      updateMessageReactions(msgId, reactions);
+    });
+
+    socket.on('typing:start', ({ chatId, userId, username }) => {
+      if (chatId !== activeChat?.id || userId === ME.id) return;
+      const bar = document.getElementById('typingBar');
+      bar.textContent = `${username ?? 'Alguien'} está escribiendo…`;
+      bar.classList.remove('hidden');
+      clearTimeout(typingTimers[userId]);
+      typingTimers[userId] = setTimeout(() => bar.classList.add('hidden'), 2500);
+    });
+
+    socket.on('typing:stop', ({ chatId, userId }) => {
+      if (chatId !== activeChat?.id) return;
+      clearTimeout(typingTimers[userId]);
+      document.getElementById('typingBar').classList.add('hidden');
+    });
+
+    // Unirse a sala cuando otro usuario crea un chat nuevo con nosotros
+    socket.on('chat:new', ({ chatId }) => {
+      socket.emit('chat:join', chatId);
+      loadChats();
+    });
+
+    socket.on('user:online:init', (userIds) => {
+      onlineSet = new Set(userIds);
+      renderContactList();
+      loadChats();
+    });
+
+    socket.on('contact:request', ({ from }) => {
+      toast(`${from.username} quiere añadirte como contacto`, 'bg-indigo-700');
+      loadRequests();
+    });
+
+    socket.on('contact:accepted', ({ user }) => {
+      toast(`${user.username} aceptó tu solicitud`, 'bg-emerald-700');
+      loadContacts();
+    });
+
+    socket.on('user:online', ({ userId }) => {
+      onlineSet.add(userId);
+      updateOnlineDots(userId, true);
+      if (activeChat?.type === 'direct' && activeChat.otherUser?.id === userId) {
+        document.getElementById('chatHeaderSub').textContent = 'En línea';
+      }
+    });
+
+    socket.on('user:offline', ({ userId }) => {
+      onlineSet.delete(userId);
+      updateOnlineDots(userId, false);
+      if (activeChat?.type === 'direct' && activeChat.otherUser?.id === userId) {
+        document.getElementById('chatHeaderSub').textContent = 'Desconectado';
+      }
+    });
+
+    function updateOnlineDots (userId, online) {
+      document.querySelectorAll(`.online-dot-${userId}`).forEach(dot => {
+        dot.classList.toggle('bg-emerald-400', online);
+        dot.classList.toggle('bg-zinc-600', !online);
+      });
+    }
+
+    // ========================================
+    //  NUEVO GRUPO
+    // ========================================
+    function renderGroupMemberList () {
+      const list = document.getElementById('groupMemberList');
+      list.innerHTML = '';
+      contacts.forEach(c => {
+        const el = document.createElement('label');
+        el.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-800 cursor-pointer transition';
+        el.innerHTML = `<input type="checkbox" value="${esc(c.id)}" class="rounded accent-indigo-500" />
+          ${avatarHTML(c.username, c.avatar, 'w-6 h-6')}
+          <span class="text-sm">${esc(c.username)}</span>`;
+        list.appendChild(el);
+      });
+    }
+
+    document.getElementById('btnNewGroup').addEventListener('click', () => {
+      renderGroupMemberList();
+      document.getElementById('groupModal').classList.remove('hidden');
+    });
+    document.getElementById('closeGroup').addEventListener('click', () => {
+      document.getElementById('groupModal').classList.add('hidden');
+    });
+    document.getElementById('groupModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('groupModal')) document.getElementById('groupModal').classList.add('hidden');
+    });
+
+    document.getElementById('createGroupBtn').addEventListener('click', async () => {
+      const name = document.getElementById('groupName').value.trim();
+      if (!name) { toast('Introduce un nombre', 'bg-red-700'); return; }
+      const checked = [...document.querySelectorAll('#groupMemberList input:checked')].map(i => i.value);
+      if (!checked.length) { toast('Selecciona al menos un miembro', 'bg-red-700'); return; }
+      const res = await fetch('/api/chats/group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, memberIds: checked })
+      });
+      if (res.ok) {
+        const chat = await res.json();
+        document.getElementById('groupModal').classList.add('hidden');
+        document.getElementById('groupName').value = '';
+        await loadChats();
+        openChat(chat);
+        toast(`Grupo "${name}" creado`, 'bg-emerald-700');
+      } else toast('Error al crear el grupo', 'bg-red-700');
+    });
+
+    // ========================================
+    //  INIT
+    // ========================================
+    await loadProfile();
+    await loadContacts();
+    await loadChats();
+  </script>
+</body>
+</html>

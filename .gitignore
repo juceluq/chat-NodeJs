@@ -1,2 +1,32 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno
 .env
-node_modules
+.env.local
+.env.*.local
+
+# Avatares subidos por usuarios
+public/avatars/*
+!public/avatars/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build / dist
+dist/
+build/
