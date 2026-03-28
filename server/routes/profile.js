@@ -85,4 +85,14 @@ router.patch('/password', requireAuth, async (req, res) => {
   }
 });
 
+// Eliminar cuenta
+router.delete('/', requireAuth, async (req, res) => {
+  try {
+    await UserRepository.deleteAccount(req.session.user.id);
+    res.clearCookie('access_token').clearCookie('refresh_token').json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Error al eliminar la cuenta.' });
+  }
+});
+
 export default router;

@@ -10,6 +10,10 @@ node_modules/
 public/avatars/*
 !public/avatars/.gitkeep
 
+# Archivos multimedia subidos
+public/uploads/*
+!public/uploads/.gitkeep
+
 # Logs
 logs/
 *.log

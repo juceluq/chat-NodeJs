@@ -159,16 +159,14 @@ router.post('/requests/:requestId/reject', requireAuth, async (req, res) => {
   }
 });
 
-// Eliminar contacto
+// Eliminar contacto (bidireccional)
 router.delete('/:targetId', requireAuth, async (req, res) => {
   const { targetId } = req.params;
   const myId = req.session.user.id;
   try {
     const users = db.collection('users');
-    await users.updateOne(
-      { _id: new ObjectId(myId) },
-      { $pull: { contacts: targetId } }
-    );
+    await users.updateOne({ _id: new ObjectId(myId) }, { $pull: { contacts: targetId } });
+    await users.updateOne({ _id: new ObjectId(targetId) }, { $pull: { contacts: myId } });
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Error removing contact.' });

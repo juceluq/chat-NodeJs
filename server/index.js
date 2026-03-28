@@ -10,6 +10,7 @@ import { setupSocket } from './sockets.js';
 import contactsRouter from './routes/contacts.js';
 import chatsRouter from './routes/chats.js';
 import profileRouter from './routes/profile.js';
+import { isMailConfigured, sendVerificationEmail } from './mailer.js';
 
 const port = process.env.PORT ?? 3000;
 const app = express();
@@ -73,12 +74,36 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
   try {
-    await UserRepository.create({ username, password });
-    res.redirect('/?success=' + encodeURIComponent('Cuenta creada. ¡Inicia sesión!'));
+    const { verificationToken } = await UserRepository.create({ username, password, email });
+    if (isMailConfigured && verificationToken) {
+      try {
+        await sendVerificationEmail(email, username, verificationToken);
+        res.redirect('/?success=' + encodeURIComponent('Cuenta creada. Revisa tu email para verificar la cuenta.'));
+      } catch {
+        // Si el correo falla, verificamos automáticamente
+        await UserRepository.verifyEmail(verificationToken);
+        res.redirect('/?success=' + encodeURIComponent('Cuenta creada. ¡Inicia sesión!'));
+      }
+    } else {
+      res.redirect('/?success=' + encodeURIComponent('Cuenta creada. ¡Inicia sesión!'));
+    }
   } catch (error) {
     res.redirect('/?error=' + encodeURIComponent(error.message));
+  }
+});
+
+app.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token || typeof token !== 'string') {
+    return res.redirect('/?error=' + encodeURIComponent('Token de verificación inválido.'));
+  }
+  try {
+    await UserRepository.verifyEmail(token);
+    res.redirect('/?success=' + encodeURIComponent('¡Email verificado! Ya puedes iniciar sesión.'));
+  } catch (err) {
+    res.redirect('/?error=' + encodeURIComponent(err.message));
   }
 });
 

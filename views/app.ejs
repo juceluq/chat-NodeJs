@@ -132,6 +132,14 @@
     <!-- Input -->
     <div id="inputBar" class="hidden p-3 bg-zinc-900 border-t border-zinc-800">
       <form id="msgForm" class="flex gap-2 items-end">
+        <!-- Adjuntar archivo -->
+        <label for="mediaInput" title="Adjuntar imagen, vídeo o audio"
+          class="w-10 h-10 shrink-0 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center cursor-pointer transition text-zinc-400 hover:text-white">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+          </svg>
+        </label>
+        <input id="mediaInput" type="file" accept="image/*,video/*,audio/*,.gif" class="hidden" />
         <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje…"
           class="flex-1 px-4 py-2 rounded-2xl bg-zinc-800 border border-zinc-700 focus:border-indigo-500 focus:outline-none text-sm text-white resize-none max-h-32 overflow-y-auto"
           style="line-height:1.5"></textarea>
@@ -142,6 +150,13 @@
           </svg>
         </button>
       </form>
+      <!-- Preview archivo seleccionado -->
+      <div id="mediaPreview" class="hidden mt-2 flex items-center gap-2 px-1">
+        <span id="mediaPreviewName" class="text-xs text-zinc-400 truncate flex-1"></span>
+        <button id="mediaClear" type="button" class="text-zinc-500 hover:text-red-400 transition shrink-0">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
   </main>
 
@@ -190,6 +205,14 @@
           <p id="pwdMsg" class="text-xs hidden"></p>
         </div>
       </details>
+
+      <!-- Zona de peligro -->
+      <div class="mt-4 pt-4 border-t border-zinc-800">
+        <button id="deleteAccountBtn"
+          class="w-full py-2 text-xs font-semibold text-red-400 border border-red-900/60 hover:bg-red-900/20 rounded-lg transition">
+          Eliminar cuenta
+        </button>
+      </div>
     </div>
   </div>
 
@@ -235,7 +258,7 @@
     </div>
   </div>
 
-  <!-- ===== MODAL CONFIRMAR ELIMINAR ===== -->
+  <!-- ===== MODAL CONFIRMAR (genérico) ===== -->
   <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-2xl w-full max-w-xs mx-4 p-5 shadow-2xl">
       <div class="flex items-center gap-3 mb-4">
@@ -243,8 +266,8 @@
           <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </div>
         <div>
-          <p class="font-semibold text-sm">¿Eliminar mensaje?</p>
-          <p class="text-xs text-zinc-400">Esta acción no se puede deshacer.</p>
+          <p id="confirmTitle" class="font-semibold text-sm">¿Eliminar?</p>
+          <p id="confirmDesc" class="text-xs text-zinc-400">Esta acción no se puede deshacer.</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -467,10 +490,32 @@
             <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z"/>
             </svg>
+          </button>
+          <button data-remove-friend="${c.id}" title="Eliminar amigo"
+            class="w-7 h-7 rounded-lg bg-zinc-700 hover:bg-red-700 flex items-center justify-center transition shrink-0">
+            <svg class="w-3.5 h-3.5 pointer-events-none text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6h11M18 9l5 5m0-5l-5 5"/>
+            </svg>
           </button>`;
         list.appendChild(el);
         el.querySelector('[data-open-chat]').addEventListener('click', (e) => { e.stopPropagation(); openDirectChat(c.id); });
         el.querySelectorAll('[data-profile]').forEach(p => p.addEventListener('click', () => openUserProfile(c.id)));
+        el.querySelector('[data-remove-friend]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openConfirm(
+            `¿Eliminar a ${c.username}?`,
+            'Se eliminará de tu lista de contactos.',
+            async () => {
+              const res = await fetch(`/api/contacts/${c.id}`, { method: 'DELETE' });
+              if (res.ok) {
+                toast(`${c.username} eliminado de contactos`, 'bg-zinc-700');
+                await loadContacts();
+              } else {
+                toast('Error al eliminar contacto', 'bg-red-700');
+              }
+            }
+          );
+        });
       });
     }
 
@@ -628,7 +673,6 @@
     // ========================================
     //  RENDER MESSAGE
     // ========================================
-    let _pendingDeleteId = null;
     let _pickerMsgId = null;
 
     function reactionsHTML (reactions) {
@@ -655,6 +699,24 @@
       if (!wrapper) return;
       const row = wrapper.querySelector('.reactions-row');
       if (row) { row.innerHTML = reactionsHTML(reactions); bindReactionClicks(wrapper, msgId); }
+    }
+
+    // ---- Media content helper ----
+    function mediaContentHTML (msg, isMe) {
+      if (!msg.mediaUrl) return `<p class="msg-content">${esc(msg.content)}</p>`;
+      const url = esc(msg.mediaUrl);
+      let mediaHTML = '';
+      if (msg.mediaType === 'image') {
+        mediaHTML = `<a href="${url}" target="_blank" rel="noopener">
+          <img src="${url}" class="max-w-[220px] max-h-[220px] rounded-xl object-cover cursor-zoom-in" loading="lazy" alt="imagen" />
+        </a>`;
+      } else if (msg.mediaType === 'video') {
+        mediaHTML = `<video src="${url}" controls class="max-w-[260px] max-h-[200px] rounded-xl" preload="metadata"></video>`;
+      } else if (msg.mediaType === 'audio') {
+        mediaHTML = `<audio src="${url}" controls class="w-full min-w-[200px]" preload="metadata"></audio>`;
+      }
+      const caption = msg.content ? `<p class="msg-content text-xs mt-1 opacity-80">${esc(msg.content)}</p>` : '';
+      return mediaHTML + caption;
     }
 
     function appendMessage (msg) {
@@ -687,6 +749,9 @@
         <svg class="w-3.5 h-3.5 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       </button>`;
 
+      // Los mensajes de solo media no necesitan botón de editar
+      const canEdit = !msg.mediaUrl;
+
       if (!isMe) {
         wrapper.innerHTML = `
           <button class="shrink-0 self-end hover:opacity-80 transition" data-profile="${esc(msg.senderId)}">${avatarHTML(msg.senderUsername, msg.senderAvatar, 'w-6 h-6')}</button>
@@ -694,7 +759,7 @@
             <div class="flex items-end gap-1">
               <div class="msg-bubble bg-zinc-800 text-gray-200 px-3 py-2 rounded-2xl rounded-bl-sm text-sm break-words space-y-0.5">
                 ${activeChat?.type === 'group' ? `<p class="text-[10px] font-semibold text-indigo-400">${esc(msg.senderUsername)}</p>` : ''}
-                <p class="msg-content">${esc(msg.content)}</p>
+                ${mediaContentHTML(msg, false)}
                 <p class="msg-meta text-[10px] text-zinc-500 text-right">${time}${editedMark}</p>
               </div>
               ${reactBtnHTML}
@@ -708,21 +773,21 @@
             <div class="flex items-end gap-1">
               <div class="opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
                 ${reactBtnHTML}
-                <button class="msg-edit-btn w-6 h-6 rounded-md bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center" title="Editar">
+                ${canEdit ? `<button class="msg-edit-btn w-6 h-6 rounded-md bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center" title="Editar">
                   <svg class="w-3 h-3 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
+                </button>` : ''}
                 <button class="msg-del-btn w-6 h-6 rounded-md bg-zinc-700 hover:bg-red-700 flex items-center justify-center" title="Eliminar">
                   <svg class="w-3 h-3 text-zinc-300 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
               <div class="msg-bubble bg-indigo-600 text-white px-3 py-2 rounded-2xl rounded-br-sm text-sm break-words space-y-0.5">
-                <p class="msg-content">${esc(msg.content)}</p>
+                ${mediaContentHTML(msg, true)}
                 <p class="msg-meta text-[10px] text-indigo-300 text-right">${time}${editedMark}${readIcon}</p>
               </div>
             </div>
             <div class="reactions-row flex flex-wrap gap-0.5 justify-end pr-0.5">${reactionsHTML(msg.reactions)}</div>
           </div>`;
-        wrapper.querySelector('.msg-edit-btn').addEventListener('click', () => startEdit(msg.id, msg.content));
+        if (canEdit) wrapper.querySelector('.msg-edit-btn')?.addEventListener('click', () => startEdit(msg.id, msg.content));
         wrapper.querySelector('.msg-del-btn').addEventListener('click', () => confirmDelete(msg.id));
       }
 
@@ -752,25 +817,52 @@
     }
 
     function confirmDelete (msgId) {
-      _pendingDeleteId = msgId;
+      openConfirm('¿Eliminar mensaje?', 'Esta acción no se puede deshacer.', () => {
+        socket.emit('message:delete', { msgId });
+      });
+    }
+
+    // ---- Confirm modal (genérico) ----
+    let _confirmCallback = null;
+
+    function openConfirm (title, desc, callback) {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmDesc').textContent = desc;
+      _confirmCallback = callback;
       document.getElementById('confirmModal').classList.remove('hidden');
     }
 
     document.getElementById('cancelEdit').addEventListener('click', cancelEdit);
     document.getElementById('confirmOk').addEventListener('click', () => {
-      if (_pendingDeleteId) socket.emit('message:delete', { msgId: _pendingDeleteId });
-      _pendingDeleteId = null;
+      if (_confirmCallback) _confirmCallback();
+      _confirmCallback = null;
       document.getElementById('confirmModal').classList.add('hidden');
     });
     document.getElementById('confirmCancel').addEventListener('click', () => {
-      _pendingDeleteId = null;
+      _confirmCallback = null;
       document.getElementById('confirmModal').classList.add('hidden');
     });
     document.getElementById('confirmModal').addEventListener('click', e => {
       if (e.target === document.getElementById('confirmModal')) {
-        _pendingDeleteId = null;
+        _confirmCallback = null;
         document.getElementById('confirmModal').classList.add('hidden');
       }
+    });
+
+    // ---- Eliminar cuenta ----
+    document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+      openConfirm(
+        '¿Eliminar tu cuenta?',
+        'Se borrarán todos tus datos. Esta acción es irreversible.',
+        async () => {
+          const res = await fetch('/api/profile', { method: 'DELETE' });
+          if (res.ok) {
+            window.location.href = '/';
+          } else {
+            toast('Error al eliminar la cuenta', 'bg-red-700');
+          }
+        }
+      );
     });
 
     // ---- Emoji picker ----
@@ -831,6 +923,28 @@
     // ========================================
     const msgForm = document.getElementById('msgForm');
     const msgInput = document.getElementById('msgInput');
+    const mediaInput = document.getElementById('mediaInput');
+    const mediaPreview = document.getElementById('mediaPreview');
+    const mediaPreviewName = document.getElementById('mediaPreviewName');
+
+    // ---- Selección de archivo ----
+    mediaInput.addEventListener('change', () => {
+      const file = mediaInput.files[0];
+      if (!file) return;
+      const maxMB = 50;
+      if (file.size > maxMB * 1024 * 1024) {
+        toast(`El archivo supera los ${maxMB} MB`, 'bg-red-700');
+        mediaInput.value = '';
+        return;
+      }
+      mediaPreviewName.textContent = `📎 ${file.name}`;
+      mediaPreview.classList.remove('hidden');
+    });
+
+    document.getElementById('mediaClear').addEventListener('click', () => {
+      mediaInput.value = '';
+      mediaPreview.classList.add('hidden');
+    });
 
     msgInput.addEventListener('input', () => {
       msgInput.style.height = 'auto';
@@ -846,10 +960,31 @@
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); msgForm.requestSubmit(); }
     });
 
-    msgForm.addEventListener('submit', (e) => {
+    msgForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!activeChat) return;
+
+      const file = mediaInput.files[0];
+      if (file) {
+        // Envío multimedia via HTTP
+        const formData = new FormData();
+        formData.append('file', file);
+        const caption = msgInput.value.trim();
+        if (caption) formData.append('caption', caption);
+        mediaInput.value = '';
+        mediaPreview.classList.add('hidden');
+        msgInput.value = '';
+        msgInput.style.height = 'auto';
+        const res = await fetch(`/api/chats/${activeChat.id}/media`, { method: 'POST', body: formData });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          toast(data.error ?? 'Error al enviar el archivo', 'bg-red-700');
+        }
+        return;
+      }
+
       const content = msgInput.value.trim();
-      if (!content || !activeChat) return;
+      if (!content) return;
       if (editingMsgId) {
         socket.emit('message:edit', { msgId: editingMsgId, content });
         cancelEdit();

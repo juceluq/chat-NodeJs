@@ -19,6 +19,13 @@ export class Validation {
     }
   }
 
+  static email (address) {
+    if (typeof address !== 'string') throw new Error('El email debe ser una cadena de texto.');
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!re.test(address)) throw new Error('El formato del email no es válido.');
+    if (address.length > 254) throw new Error('El email es demasiado largo.');
+  }
+
   static async checkUserExistence (username) {
     const users = db.collection('users');
     const existingUser = await users.findOne({ username });
@@ -26,5 +33,11 @@ export class Validation {
     if (existingUser) {
       throw new Error('User already exists.');
     }
+  }
+
+  static async checkEmailExistence (email) {
+    const users = db.collection('users');
+    const existing = await users.findOne({ email: email.toLowerCase() });
+    if (existing) throw new Error('Este email ya está registrado.');
   }
 }

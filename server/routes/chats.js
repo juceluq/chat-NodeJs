@@ -1,8 +1,33 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
+import path from 'node:path';
+import multer from 'multer';
 import { db } from '../mongoClient.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getIO } from '../io.js';
+
+const ALLOWED_MIME = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm'
+];
+
+const mediaStorage = multer.diskStorage({
+  destination: 'public/uploads/',
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  }
+});
+
+const uploadMedia = multer({
+  storage: mediaStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Tipo de archivo no permitido.'));
+  }
+});
 
 const router = Router();
 
@@ -161,6 +186,55 @@ router.delete('/:chatId/leave', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Error leaving chat.' });
+  }
+});
+
+// Subir archivo multimedia y enviarlo como mensaje
+router.post('/:chatId/media', requireAuth, uploadMedia.single('file'), async (req, res) => {
+  const { chatId } = req.params;
+  const myId = req.session.user.id;
+  if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo.' });
+  try {
+    const chats = db.collection('chats');
+    const chat = await chats.findOne({ _id: new ObjectId(chatId) });
+    if (!chat) return res.status(404).json({ error: 'Chat not found.' });
+    if (!chat.members.includes(myId)) return res.status(403).json({ error: 'Forbidden.' });
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    const mediaType = req.file.mimetype.split('/')[0]; // 'image' | 'video' | 'audio'
+
+    const messages = db.collection('messages');
+    const users = db.collection('users');
+    const sender = await users.findOne({ _id: new ObjectId(myId) }, { projection: { password: 0 } });
+
+    const msg = {
+      chatId,
+      content: req.body.caption?.trim() || '',
+      mediaUrl: fileUrl,
+      mediaType,
+      mediaMime: req.file.mimetype,
+      senderId: myId,
+      senderUsername: sender?.username ?? 'Unknown',
+      senderAvatar: sender?.avatar ?? null,
+      createdAt: new Date(),
+      readBy: [myId]
+    };
+    const result = await messages.insertOne(msg);
+    const savedMsg = { ...msg, id: result.insertedId.toString() };
+
+    const lastContent = mediaType === 'image' ? '📷 Imagen' : mediaType === 'video' ? '🎥 Vídeo' : '🎵 Audio';
+    await chats.updateOne(
+      { _id: new ObjectId(chatId) },
+      { $set: { updatedAt: new Date(), lastMessage: { content: lastContent, senderId: myId, senderUsername: sender?.username, createdAt: new Date() } } }
+    );
+
+    const io = getIO();
+    if (io) io.to(chatId).emit('message:new', savedMsg);
+
+    res.json(savedMsg);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al enviar el archivo.' });
   }
 });
 

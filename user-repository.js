@@ -1,22 +1,35 @@
 import bcrypt from 'bcrypt';
 import env from 'dotenv';
+import { randomBytes } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import { Validation } from './validation.js';
 import { db } from './server/mongoClient.js';
+import { isMailConfigured } from './server/mailer.js';
 
 env.config();
 export class UserRepository {
-  static async create ({ username, password }) {
+  static async create ({ username, password, email }) {
     Validation.username(username);
     Validation.password(password);
+    Validation.email(email);
     await Validation.checkUserExistence(username);
+    await Validation.checkEmailExistence(email);
+
     const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    const emailVerified = !isMailConfigured;
+    const verificationToken = isMailConfigured ? randomBytes(32).toString('hex') : null;
+    const verificationTokenExpiry = isMailConfigured ? new Date(Date.now() + 24 * 3600 * 1000) : null;
 
     const users = db.collection('users');
     const result = await users.insertOne({
       username,
       password: hashedPassword,
+      email: email.toLowerCase(),
+      emailVerified,
+      verificationToken,
+      verificationTokenExpiry,
       bio: '',
       avatar: null,
       contacts: [],
@@ -26,7 +39,27 @@ export class UserRepository {
     if (!result.insertedId) {
       throw new Error('Error creating user.');
     }
-    return true;
+    return { verificationToken };
+  }
+
+  static async verifyEmail (token) {
+    const users = db.collection('users');
+    const user = await users.findOne({ verificationToken: token, emailVerified: false });
+    if (!user) throw new Error('Token inválido o ya utilizado.');
+    if (user.verificationTokenExpiry && new Date() > user.verificationTokenExpiry) {
+      throw new Error('El token de verificación ha expirado. Regístrate de nuevo.');
+    }
+    await users.updateOne({ _id: user._id }, {
+      $set: { emailVerified: true, verificationToken: null, verificationTokenExpiry: null }
+    });
+  }
+
+  static async deleteAccount (id) {
+    const users = db.collection('users');
+    await users.updateMany({ contacts: id }, { $pull: { contacts: id } });
+    await users.deleteOne({ _id: new ObjectId(id) });
+    const requests = db.collection('friend_requests');
+    await requests.deleteMany({ $or: [{ fromId: id }, { toId: id }] });
   }
 
   static async login ({ username, password }) {
@@ -43,6 +76,10 @@ export class UserRepository {
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       throw new Error('Invalid password.');
+    }
+
+    if (user.emailVerified === false) {
+      throw new Error('Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.');
     }
 
     const { password: _, _id, ...rest } = user;
