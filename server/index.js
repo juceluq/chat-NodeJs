@@ -83,14 +83,13 @@ app.post('/register', async (req, res) => {
   try {
     const { verificationToken } = await UserRepository.create({ username, password, email });
     if (isMailConfigured && verificationToken) {
-      try {
-        await sendVerificationEmail(email, username, verificationToken);
-        res.redirect('/?success=' + encodeURIComponent('Cuenta creada. Revisa tu email para verificar la cuenta.'));
-      } catch {
-        // Si el correo falla, verificamos automáticamente
-        await UserRepository.verifyEmail(verificationToken);
-        res.redirect('/?success=' + encodeURIComponent('Cuenta creada. ¡Inicia sesión!'));
-      }
+      // Responde inmediatamente sin esperar el email
+      res.redirect('/?success=' + encodeURIComponent('Cuenta creada. Revisa tu email para verificar la cuenta.'));
+      // Manda el correo en background
+      sendVerificationEmail(email, username, verificationToken).catch(async () => {
+        // Si falla, auto-verificar para no bloquear al usuario
+        await UserRepository.verifyEmail(verificationToken).catch(() => {});
+      });
     } else {
       res.redirect('/?success=' + encodeURIComponent('Cuenta creada. ¡Inicia sesión!'));
     }
