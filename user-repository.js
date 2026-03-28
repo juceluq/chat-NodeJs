@@ -44,13 +44,14 @@ export class UserRepository {
 
   static async verifyEmail (token) {
     const users = db.collection('users');
-    const user = await users.findOne({ verificationToken: token, emailVerified: false });
-    if (!user) throw new Error('Token inválido o ya utilizado.');
+    const user = await users.findOne({ verificationToken: token });
+    if (!user) throw new Error('Token de verificación inválido.');
     if (user.verificationTokenExpiry && new Date() > user.verificationTokenExpiry) {
       throw new Error('El token de verificación ha expirado. Regístrate de nuevo.');
     }
+    if (user.emailVerified) return; // Ya verificado (idempotente)
     await users.updateOne({ _id: user._id }, {
-      $set: { emailVerified: true, verificationToken: null, verificationTokenExpiry: null }
+      $set: { emailVerified: true }
     });
   }
 

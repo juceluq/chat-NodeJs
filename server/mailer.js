@@ -9,7 +9,7 @@ export async function sendVerificationEmail (to, username, token) {
   const base = process.env.APP_URL ?? 'http://localhost:3000';
   const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
   const from = process.env.SMTP_FROM ?? 'ChatApp <onboarding@resend.dev>';
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from,
     to,
     subject: '✉️ Verifica tu cuenta en ChatApp',
@@ -157,4 +157,5 @@ export async function sendVerificationEmail (to, username, token) {
 </body>
 </html>`
   });
+  if (error) throw new Error(error.message || 'Error al enviar el email de verificación.');
 }
