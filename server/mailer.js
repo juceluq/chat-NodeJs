@@ -1,33 +1,16 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-export const isMailConfigured = !!(
-  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
-);
+export const isMailConfigured = !!(process.env.SMTP_PASS);
 
-let transporter = null;
-
-if (isMailConfigured) {
-  const port = parseInt(process.env.SMTP_PORT ?? '465', 10);
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000
-  });
-}
+const resend = isMailConfigured ? new Resend(process.env.SMTP_PASS) : null;
 
 export async function sendVerificationEmail (to, username, token) {
-  if (!transporter) return;
+  if (!resend) return;
   const base = process.env.APP_URL ?? 'http://localhost:3000';
   const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+  const from = process.env.SMTP_FROM ?? 'ChatApp <onboarding@resend.dev>';
+  await resend.emails.send({
+    from,
     to,
     subject: 'Verifica tu cuenta — ChatApp',
     html: `
