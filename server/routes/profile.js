@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
-import path from 'node:path';
+import path, { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { UserRepository } from '../../user-repository.js';
 import { requireAuth } from '../middleware/auth.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
 
 const storage = multer.diskStorage({
-  destination: 'public/avatars/',
+  destination: join(__dirname, '../../public/avatars'),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `${Date.now()}${ext}`);

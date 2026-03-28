@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
-import path from 'node:path';
+import path, { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { db } from '../mongoClient.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getIO } from '../io.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ALLOWED_MIME = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -13,7 +16,7 @@ const ALLOWED_MIME = [
 ];
 
 const mediaStorage = multer.diskStorage({
-  destination: 'public/uploads/',
+  destination: join(__dirname, '../../public/uploads'),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);

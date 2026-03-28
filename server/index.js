@@ -5,12 +5,17 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
+import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 import { UserRepository } from '../user-repository.js';
 import { setupSocket } from './sockets.js';
 import contactsRouter from './routes/contacts.js';
 import chatsRouter from './routes/chats.js';
 import profileRouter from './routes/profile.js';
 import { isMailConfigured, sendVerificationEmail } from './mailer.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..');
 
 const port = process.env.PORT ?? 3000;
 const app = express();
@@ -20,13 +25,13 @@ const io = new Server(server, {
 });
 
 app.set('view engine', 'ejs');
-app.set('views', './views');
+app.set('views', join(ROOT, 'views'));
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static('public'));
+app.use(express.static(join(ROOT, 'public')));
 
 // Middleware JWT
 app.use((req, res, next) => {
@@ -137,6 +142,6 @@ app.use((_req, res) => {
   res.redirect('/');
 });
 
-server.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+server.listen(port, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${port}`);
 });
