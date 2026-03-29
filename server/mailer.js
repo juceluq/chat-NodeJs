@@ -6,7 +6,7 @@ const resend = isMailConfigured ? new Resend(process.env.SMTP_PASS) : null;
 
 export async function sendVerificationEmail (to, username, token) {
   if (!resend) return;
-  const base = process.env.APP_URL ?? 'http://localhost:3000';
+  const base = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
   const from = process.env.SMTP_FROM ?? 'ChatApp <onboarding@resend.dev>';
   const { error } = await resend.emails.send({
